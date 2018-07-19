@@ -1,4 +1,5 @@
 def label = "mypod-${UUID.randomUUID().toString()}"
+lable = "jenkins-slave"
 podTemplate(label: label) {
   node(label) {
     sleep 60
