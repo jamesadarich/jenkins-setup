@@ -1,0 +1,160 @@
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: jenkins-ingress
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    certmanager.k8s.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  tls:
+  - hosts:
+    - adarich-jenkins.westeurope.cloudapp.azure.com
+    secretName: tls-secret
+  rules:
+  - host: adarich-jenkins.westeurope.cloudapp.azure.com
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: jenkins-master-cluster
+          servicePort: 8080
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: tls-secret
+spec:
+  secretName: tls-secret
+  dnsNames:
+  - adarich-jenkins.westeurope.cloudapp.azure.com
+  acme:
+    config:
+    - http01:
+        ingressClass: nginx
+      domains:
+      - adarich-jenkins.westeurope.cloudapp.azure.com
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+---    
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: ClusterIssuer
+metadata:
+  name: letsencrypt-prod
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: james.adarich@gmail.com
+    privateKeySecretRef:
+      name: letsencrypt-prod
+    http01: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jenkins-master-cluster
+spec:
+  type: ClusterIP
+  ports:
+  - name: http
+    port: 8080
+  - name: jnlp
+    port: 50000
+  selector:
+    app: jenkins
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: jenkins
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: jenkins
+    spec:
+      containers:
+        - name: jenkins
+          image: jamesadarich/jenkins-master:0.1.0
+          env:
+            - name: JAVA_OPTS
+              value: -Djenkins.install.runSetupWizard=false
+          ports:
+            - name: http-port
+              containerPort: 8080
+            - name: jnlp-port
+              containerPort: 50000
+          volumeMounts:
+            - name: jenkins-home
+              mountPath: /var/jenkins_home
+              #subPath: jenkins-hom2`12e
+      volumes:
+        - name: jenkins-home
+          #persistentVolumeClaim:
+          #  claimName: jenkins-disk-pvc
+          emptyDir: {}
+          #azureDisk:
+          #  kind: Managed
+          #  diskName: jenkins-disk
+          #  diskURI: /subscriptions/33895fc3-f1cb-4b4e-a3c4-24b0e6a810f6/resourceGroups/MC_jenkins-aks_jenkins_westeurope/providers/Microsoft.Compute/disks/jenkins-disk
+#---
+#kind: StorageClass
+#apiVersion: storage.k8s.io/v1
+#metadata:
+#  name: jenkins-disk-storage
+#provisioner: kubernetes.io/azure-disk
+#parameters:
+#  skuName: Standard_LRS
+#  kind: Managed
+#  cachingmode: None
+#---
+#apiVersion: v1
+#kind: PersistentVolumeClaim
+#metadata:
+#  name: jenkins-disk-pvc
+#spec:
+#  accessModes:
+#    - ReadWriteOnce
+#  storageClassName: jenkins-disk-storage
+#  resources:
+#    requests:
+#      storage: 20Gi
+#apiVersion: v1
+#kind: PersistentVolume
+#metadata:
+#  name: jenkins-home
+#spec:
+#  capacity:
+#    storage: 10Gi
+#  storageClassName: default
+#  azureDisk:
+#    kind: Managed
+#    diskName: jenkins-disk
+#    diskURI: /subscriptions/33895fc3-f1cb-4b4e-a3c4-24b0e6a810f6/resourceGroups/MC_jenkins-aks_jenkins_westeurope/providers/Microsoft.Compute/disks/jenkins-disk
+#    fsType: ext4
+#  accessModes:
+#  - ReadWriteOnce
+#  persistentVolumeReclaimPolicy: Retain
+#  claimRef:
+#    name: jenkins-home-pvc
+#    namespace: default
+#---
+#apiVersion: v1
+#kind: PersistentVolumeClaim
+#metadata:
+#  name: jenkins-home-pvc
+#  annotations:
+#    volume.beta.kubernetes.io/storage-class: default
+#spec:
+#  accessModes:
+#  - ReadWriteOnce
+#  resources:
+#    requests:
+#      storage: 10Gi
+#  storageClassName: default
+#          azureDisk:
+#            kind: Managed
+#            diskName: jenkins-disk
+#            diskURI: /subscriptions/33895fc3-f1cb-4b4e-a3c4-24b0e6a810f6/resourceGroups/MC_jenkins-aks_jenkins_westeurope/providers/Microsoft.Compute/disks/jenkins-disk

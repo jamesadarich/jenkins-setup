@@ -1,4 +1,16 @@
 FROM jenkins/jenkins:lts-alpine
 
-# install plugins
+# install docker
+USER root
+RUN echo "http://dl-cdn.alpinelinux.org/alpine/latest-stable/community" >> /etc/apk/repositories
+RUN apk update
+RUN apk add docker
+
+# switch user back to non root
+# USER jenkins
+
+# install jenkins plugins
 RUN /usr/local/bin/install-plugins.sh blueocean
+RUN /usr/local/bin/install-plugins.sh kubernetes
+
+# 
